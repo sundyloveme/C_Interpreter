@@ -1,4 +1,4 @@
-moment ago #include <stdio.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
 #include <string.h>
@@ -165,15 +165,3 @@ int main() {
     //int char 等关键字入 symbols.
     return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-
