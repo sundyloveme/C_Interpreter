@@ -8,6 +8,8 @@
 
 char *src;//指向源文件
 
+//text
+
 int basetype;
 
 //存放词汇的一张表
@@ -118,6 +120,41 @@ int match(int tk){
     }
 }
 
+int function_body(){
+     // type func_name (...) {...}
+     //                   -->|   |<--
+
+     // ... {
+     // 1. local declarations
+     // 2. statements
+     // }
+
+    int pos_local;
+    int type;
+
+    pos_local=index_of_bp;
+
+    while(token==Int || token ==Char ){
+
+
+    }
+
+
+
+}
+
+int function_declaration(){
+    // type func_name (...) {...}
+    //              ->|         |<-
+    //              this part
+    match('(');
+    function_parameter();
+    match(')');
+    match('{');
+    function_body();
+
+}
+
 int global_declaration(){
      // int [*]id [; | (...) {...}]
 
@@ -141,14 +178,19 @@ int global_declaration(){
         match(Id);
         current_id[Type] = type;
 
+        //后有'('显然是函数
         if(token=='('){
             current_id[Class]=Fun;
-            //...a moment ago
+            current_id[Value]=(long long)(text+1);
+            function_declaration();
         }
-
-
+        else
+        {
+            //对变量进行处理
+        }
      }
 
+     next();
 }
 
 int program(){
