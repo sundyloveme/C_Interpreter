@@ -134,8 +134,18 @@ int function_body(){
 
     pos_local=index_of_bp;
 
+    //定义变量
     while(token==Int || token ==Char ){
+        basetype=(token==Int)?INT:CHAR;
+        match(token);
 
+        while(token!=';'){
+            type=basetype;
+
+           match(Id);
+
+
+        }
 
     }
 
