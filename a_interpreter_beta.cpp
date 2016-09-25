@@ -5,6 +5,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <iostream>
+using namespace std;
 
 int debug;    // print the executed instructions
 int assembly; // print out the assembly and source
@@ -12,12 +14,14 @@ int assembly; // print out the assembly and source
 int token; // current token
 
 // instructions
+// 指令集
 enum { LEA ,IMM ,JMP ,CALL,JZ  ,JNZ ,ENT ,ADJ ,LEV ,LI  ,LC  ,SI  ,SC  ,PUSH,
        OR  ,XOR ,AND ,EQ  ,NE  ,LT  ,GT  ,LE  ,GE  ,SHL ,SHR ,ADD ,SUB ,MUL ,DIV ,MOD ,
        OPEN,READ,CLOS,PRTF,MALC,MSET,MCMP,EXIT };
 
 // tokens and classes (operators last and in precedence order)
 // copied from c4
+// token可能等于一下：
 enum {
   Num = 128, Fun, Sys, Glo, Loc, Id,
   Char, Else, Enum, If, Int, Return, Sizeof, While,
@@ -25,6 +29,7 @@ enum {
 };
 
 // fields of identifier
+// symbols表的字段
 enum {Token, Hash, Name, Type, Class, Value, BType, BClass, BValue, IdSize};
 
 
@@ -121,7 +126,6 @@ int eval() {
         else if (op == READ) { ax = read(sp[2], (char *)sp[1], *sp); }
         else if (op == PRTF) { tmp = sp + pc[1]; ax = printf((char *)tmp[-1], tmp[-2], tmp[-3], tmp[-4], tmp[-5], tmp[-6]); }
 
-
         //why is change to (int)? why not is (*int)?
         //else if (op == MALC) { ax = (int)malloc(*sp);}
        // else if (op == MSET) { ax = (int)memset((char *)sp[2], sp[1], *sp);}
@@ -209,6 +213,10 @@ void next() {
             return;
         }
 
+        else if (token == '~' || token == ';' || token == '{' || token == '}' || token == '(' || token == ')' || token == ']' || token == ',' || token == ':') {
+            // directly return the character as token;
+            return;
+        }
     }
 
 
@@ -219,6 +227,7 @@ int match(int tk) {
         next();
     } else {
         printf("%d: Sundy:expected token: %d\n", line, tk);
+        cout<<(char)tk;
         exit(-1);
     }
 }
@@ -233,32 +242,93 @@ int expression(int level) {
             printf("%d: unexpected token EOF of expression\n", line);
             exit(-1);
         }
-        if(token==Num) {
-
-             if(token==Id) {
-                match(Id);
-
-                id=current_id;
-
-                //if
-                //else
-                if(1==9) {
-
-                } else {
-                    if(id[Class]==Loc) {
-                        *++text=LEA;
-                        *++text=index_of_bp-id[Value];
-                    }
-                    expr_type=id[Type];
-                    *++text=(expr_type==Char)?
-                            LC:LI;
-                }
-            }
+        if (token == Num) {//处理数字
             match(Num);
+            *++text = IMM;
+            *++text = token_val;
+            expr_type = INT;
+        }
+        else if (token == Id) {//处理Id
+            // there are several type when occurs to Id
+            // but this is unit, so it can only be
+            // 1. function call
+            // 2. Enum variable
+            // 3. global/local variable
+            match(Id);
 
-            *++text=IMM;
-            *++text=token_val;
-            expr_type=INT;
+            id = current_id;
+
+            if (token == '(') {
+                // function call
+                match('(');
+
+                // pass in arguments
+                tmp = 0; // number of arguments
+                while (token != ')') {
+                    expression(Assign);
+                    *++text = PUSH;
+                    tmp ++;
+
+                    if (token == ',') {
+                        match(',');
+                    }
+
+                }
+                match(')');
+
+                // emit code
+                if (id[Class] == Sys) {
+                    // system functions
+                    *++text = id[Value];
+                }
+                else if (id[Class] == Fun) {
+                    // function call
+                    *++text = CALL;
+                    *++text = id[Value];
+                }
+                else {
+                    printf("%d: bad function call\n", line);
+                    exit(-1);
+                }
+
+                // clean the stack for arguments
+                if (tmp > 0) {
+                    *++text = ADJ;
+                    *++text = tmp;
+                }
+                expr_type = id[Type];
+            }
+            else if (id[Class] == Num) {
+                // enum variable
+                *++text = IMM;
+                *++text = id[Value];
+                expr_type = INT;
+            }
+            else {
+                // variable
+                if (id[Class] == Loc) {
+                    *++text = LEA;
+					//栈往下增长
+                    *++text = index_of_bp - id[Value];
+                }
+                else if (id[Class] == Glo) {
+                    *++text = IMM;
+                    *++text = id[Value];
+                }
+                else {
+                    printf("%d: undefined variable\n", line);
+                    exit(-1);
+                }
+
+                // emit code, default behaviour is to load the value of the
+                // address which is stored in `ax`
+                expr_type = id[Type];
+                *++text = (expr_type == Char) ? LC : LI;
+            }
+        }
+        else {
+            printf("%d: bad expression\n", line);
+            exit(-1);
         }
     }
 
@@ -266,6 +336,7 @@ int expression(int level) {
         while(token>=level) {
             tmp=expr_type;
             if(token==Assign) {
+
                 match(Assign);
 
                 if(*text==LC||*text==LI) {
@@ -278,6 +349,10 @@ int expression(int level) {
                 *++text=(expr_type==CHAR)?
                         SC:SI;
             }
+            else {
+                printf("%d: compiler error, token = %d\n", line, token);
+                exit(-1);
+            }
         }
 
     }
@@ -285,16 +360,20 @@ int expression(int level) {
 
 }
 
-int statement() {
+void statement() {
     //if..
     //else..
 
     if(token==';') {
+            cout<<"wa"<<endl;
         match(';');
     } else {
         expression(Assign);
+
+        cout<<"wa2"<<endl;
         match(';');
     }
+
 }
 
 int function_body() {
@@ -321,7 +400,13 @@ int function_body() {
 
             match(Id);
 
-
+            //========
+            current_id[BClass] = current_id[Class];
+            current_id[Class]  = Loc;
+            current_id[BType]  = current_id[Type];
+            current_id[Type]   = type;
+            current_id[BValue] = current_id[Value];
+            current_id[Value]  = ++pos_local;   // index of current parameter
         }
         match(';');
     }
@@ -331,9 +416,12 @@ int function_body() {
 
     while(token != '}') {
         statement();
+        cout<<"loop"<<endl;
     }
 
+
     *++text=LEV;
+    cout<<"arrived ";
 
 }
 
@@ -341,7 +429,7 @@ void function_parameter(){
     //..
 }
 
-int function_declaration() {
+void function_declaration() {
     // type func_name (...) {...}
     //              ->|         |<-
     //              this part
@@ -362,6 +450,7 @@ int global_declaration() {
     basetype = INT;
 
     if(token==Int) {
+             //cout<<"token="<<token<<endl;
         match(Int);
     }
 
@@ -370,7 +459,8 @@ int global_declaration() {
         type=basetype;
 
         if(token!=Id) {
-            printf("%d: 为什么不是Id呢？\n", line);
+            printf("%d: Sundy:why not is Id?\n", line);
+            //cout<<"token="<<token<<endl;
             exit(-1);
         }
         match(Id);
@@ -381,7 +471,8 @@ int global_declaration() {
             current_id[Class]=Fun;
             current_id[Value]=(long long)(text+1);
             function_declaration();
-        } else {
+        }
+        else {
             //对变量进行处理
         }
     }
@@ -394,7 +485,7 @@ int program() {
     while(token>0) {
         global_declaration();
     }
-
+    cout<<"arrived2";
 }
 
 
@@ -510,9 +601,14 @@ int main(int argc,char **argv) {
     *--sp = (long long)argv;
     *--sp = (long long)tmp;
 
+
+    cout<<"-----text------"<<endl;
+    for (int i=0;i<=15 ;i++ ){
+        cout<<old_text[i]<<endl;
+    }
+    cout<<"-----text------"<<endl;
+
     eval();
-
-
 
 
     return 0;
