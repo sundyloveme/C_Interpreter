@@ -7,26 +7,25 @@
 #include <fcntl.h>
 
 char *src;//指向源文件
-
-//text
+int *text;//汇编指令集
 
 int basetype;
 
-//存放词汇的一张表
-int *current_id;
-int *symbols;
-//词汇表的列
-enum {Token, Hash, Name, Type, Class, Value, BType, BClass, BValue, IdSize};
+int *current_id;//存放词汇的一张表 副本
+int *symbols;   //存放词汇的一张表
 int token_val;//数值
+//词汇表的字段
+enum {Token, Hash, Name, Type, Class, Value, BType, BClass, BValue, IdSize};
 
 int token;//标记 关于如下enum.
-//token的标记有如下：
-enum {
+enum {//token的标记有如下：
     Num = 128, Fun, Sys, Glo, Loc, Id,
     Char, Else, Enum, If, Int, Return, Sizeof, While,
     Assign, Cond, Lor, Lan, Or, Xor, And, Eq, Ne, Lt, Gt, Le, Ge, Shl, Shr, Add, Sub, Mul, Div, Mod, Inc, Dec, Brak
 };
 
+//类型参数
+//与标记的 Int等有所不同
 enum { CHAR, INT, PTR };
 
 // 词法分析器
@@ -81,25 +80,25 @@ int next() {
             token_val=token - '0';
 
             //十进制数字
-            if(token_val>0){
-                while(*src>='0' && *src<='9' ){
+            if(token_val>0) {
+                while(*src>='0' && *src<='9' ) {
                     token_val = token_val * 10 +
-                        (*src-'0');
-                        src++;
+                                (*src-'0');
+                    src++;
                 }
             }
 
-            token=Num; return;
+            token=Num;
+            return;
         }
 
 
         //分析等于'='
-        else if(token=='='){
-            if(*src=='='){//下一个还是'='，那么是'=='.
+        else if(token=='=') {
+            if(*src=='=') { //下一个还是'='，那么是'=='.
                 src++;
                 token=Eq;
-            }
-            else{
+            } else {
                 token=Assign;
             }
             return;
@@ -110,24 +109,97 @@ int next() {
 
 }
 
-int match(int tk){
-    if(token==tk){
+int match(int tk) {
+    if(token==tk) {
         next();
-    }
-    else{
+    } else {
         printf("%d: Sundy:expected token: %d\n", line, tk);
         exit(-1);
     }
 }
 
-int function_body(){
-     // type func_name (...) {...}
-     //                   -->|   |<--
+int expression(level) {
+    int *id;
+    int tmp;
+    int *addr;
 
-     // ... {
-     // 1. local declarations
-     // 2. statements
-     // }
+    {
+        if (!token) {
+            printf("%d: unexpected token EOF of expression\n", line);
+            exit(-1);
+        }
+        if(token==Num) {
+
+            else if(token==Id) {
+                match(Id);
+
+                id=current_id;
+
+                //if
+                //else
+                if(1==9) {
+
+                } else {
+                    if(id[Class]==Loc) {
+                        *++text=LEA;
+                        *++text=index_of_bp-id[Value];
+                    }
+                    expr_type=id[Type];
+                    *++text=(expr_type==Char)?
+                            LC:LI;
+                }
+            }
+            match(Num);
+
+            *++text=IMM;
+            *++text=token_val;
+            expr_type=INT;
+        }
+    }
+
+    {
+        while(token>=level) {
+            tmp=expr_type;
+            if(token==Assign) {
+                match(Assign);
+
+                if(*text==LC||*text==LI) {
+                    *text=PUSH;
+                }
+
+                expression(Assign);
+
+                expr_type=tmp;
+                *++text=(expr_type==CHAR)?
+                        SC:SI;
+            }
+        }
+
+    }
+
+
+}
+
+int statement() {
+    //if..
+    //else..
+
+    if(token==';') {
+        match(';');
+    } else {
+        expression(Assign);
+        match(';');
+    }
+}
+
+int function_body() {
+    // type func_name (...) {...}
+    //                   -->|   |<--
+
+    // ... {
+    // 1. local declarations
+    // 2. statements
+    // }
 
     int pos_local;
     int type;
@@ -135,25 +207,32 @@ int function_body(){
     pos_local=index_of_bp;
 
     //定义变量
-    while(token==Int || token ==Char ){
+    while(token==Int || token ==Char ) {
         basetype=(token==Int)?INT:CHAR;
         match(token);
 
-        while(token!=';'){
+        while(token!=';') {
             type=basetype;
 
-           match(Id);
+            match(Id);
 
 
         }
-
+        match(';');
     }
 
+    *++text=ENT;
+    *++text=pos_local-index_of_bp;//分配的尺寸
 
+    while(token != '}') {
+        statement();
+    }
+
+    *++text=LEV;
 
 }
 
-int function_declaration(){
+int function_declaration() {
     // type func_name (...) {...}
     //              ->|         |<-
     //              this part
@@ -165,23 +244,23 @@ int function_declaration(){
 
 }
 
-int global_declaration(){
-     // int [*]id [; | (...) {...}]
+int global_declaration() {
+    // int [*]id [; | (...) {...}]
 
-     int type;
-     int i;
+    int type;
+    int i;
 
-     basetype = INT;
+    basetype = INT;
 
-     if(token==Int){
+    if(token==Int) {
         match(Int);
-     }
+    }
 
-     //分析是变量还是函数
-     while(token!=';' && token!='}' ){
+    //分析是变量还是函数
+    while(token!=';' && token!='}' ) {
         type=basetype;
 
-        if(token!=Id){
+        if(token!=Id) {
             printf("%d: 为什么不是Id呢？\n", line);
             exit(-1);
         }
@@ -189,23 +268,21 @@ int global_declaration(){
         current_id[Type] = type;
 
         //后有'('显然是函数
-        if(token=='('){
+        if(token=='(') {
             current_id[Class]=Fun;
             current_id[Value]=(long long)(text+1);
             function_declaration();
-        }
-        else
-        {
+        } else {
             //对变量进行处理
         }
-     }
+    }
 
-     next();
+    next();
 }
 
-int program(){
+int program() {
     next();
-    while(token>0){
+    while(token>0) {
         global_declaration();
     }
 
