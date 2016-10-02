@@ -4,6 +4,13 @@ int demo(){
 }
 int main()
 {
-	int bb;
-	bb=199532;
+	int a;
+	int b;
+	int c;
+	int cout;
+	a=9;
+	b=10;
+	c=11;
+	cout<<b;
+	cout<<a;
 }

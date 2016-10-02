@@ -165,11 +165,35 @@ int eval() {
 		// else if (op == MSET) { ax = (int)memset((char *)sp[2], sp[1], *sp);}
 		else if (op == MCMP) {
 			ax = memcmp((char *)sp[2], (char *)sp[1], *sp);
-		} else {
+		} 
+		else if(op== 199532){// cout指令
+				cout<<"value="<<*(bp-*pc++);
+		}
+		else {
 			printf("unknown instruction:%d\n", op);
 			return -1;
 		}
+		//---------测试--------------
+		// cout<<"bp="<<bp<<endl;
+		// cout<<"sp="<<sp<<endl;
+		// cout<<"-----stack------"<<endl;
+		// for(int i=0;i<=15;i++){
+		// cout<<(old_sp-i)<<":"<<*(old_sp-i);
+
+		// if((old_sp-i) == bp){
+			// cout<<"	 <-bp";
+		// }
+		// if((old_sp-i) == sp){
+			// cout<<"	 <-sp";
+		// }
+
+		// cout<<endl;
+		// }
+		// cout<<endl<<"-----stack------"<<endl<<endl<<endl;
+		//---------测试--------------
 	}
+	
+	
 }
 
 // 词法分析器
@@ -178,15 +202,16 @@ void next() {
 	char *last_pos;// 词汇的开头位置 词汇包括：数字，标识符和关键字等
 	int hash=0;    // 哈希值
 
-	while(token=*src) {
+	while(token=*src) { // 当遇到不认识的字符时, 自动跳过        
 		src++;
 
 		if(token=='\n') { 					  // 分析换行符'\n'
 			line++;
 		}
-											  // 分析词汇, 词汇:变量名, 关键字等
-		else if(  (token>='a' && token<='z')  ||  (token>='A' && token<='Z')|| (token=='_') ) {
-		          
+		// 分析词汇, 词汇:变量名, 关键字等
+		else if(  (token>='a' && token<='z')  ||  (token>='A' && token<='Z')|| (token=='_') ) 
+		{
+
 
 			last_pos=src-1;
 			hash=token;
@@ -213,9 +238,8 @@ void next() {
 			current_id[Hash]=hash;
 			token=current_id[Token]=Id;
 			return;
-		}
-		else if( token>='0' && token<='9' ) { // 分析数字
-		
+		} else if( token>='0' && token<='9' ) { // 分析数字
+
 			token_val=token - '0';
 
 			// 十进制数字
@@ -229,8 +253,7 @@ void next() {
 
 			token=Num;
 			return;
-		}
-		else if(token=='=') {				  // 分析等于'='
+		} else if(token=='=') {				 // 分析等于'='
 			if(*src=='=') { // 下一个还是'='，那么是'=='.
 				src++;
 				token=Eq;
@@ -238,8 +261,7 @@ void next() {
 				token=Assign;
 			}
 			return;
-		}
-		else if (token == '~' || token == ';' || token == '{' || token == '}' || token == '(' || token == ')' || token == ']' || token == ',' || token == ':') {
+		} else if (token == '~' || token == ';' || token == '{' || token == '}' || token == '(' || token == ')' || token == ']' || token == ',' || token == ':') {
 			// directly return the character as token;
 			return;
 		}
@@ -273,12 +295,23 @@ int expression(int level) {
 			*++text = IMM;
 			*++text = token_val;
 			expr_type = INT;
-		} else if (token == Id) { //处理Id
+		} 
+		
+		// 测试cout
+		else if(token==Id && current_id[Hash]==316891691){
+				*++text=199532;
+				next();
+				*++text=current_id[Value];
+				next();
+			}
+		// ^测试cout
+		else if (token == Id) { //处理Id
 			// there are several type when occurs to Id
 			// but this is unit, so it can only be
 			// 1. function call
 			// 2. Enum variable
 			// 3. global/local variable
+		
 			match(Id);
 
 			id = current_id;
@@ -366,27 +399,28 @@ int expression(int level) {
 				expr_type=tmp;
 				*++text=(expr_type==CHAR)?
 				        SC:SI;
-			} else {
+			} 
+			else {
 				printf("%d: compiler error, token = %d\n", line, token);
 				exit(-1);
 			}
 		}
-
 	}
 
+	
 
 }
 
 void statement() {
 	//if..
 	//else..
-
+	
+	
+	
 	if(token==';') {
-		//cout<<"wa"<<endl;
 		match(';');
 	} else {
 		expression(Assign);
-		//cout<<"wa2"<<endl;
 		match(';');
 	}
 
@@ -598,6 +632,21 @@ int main(int argc,char **argv) {
 	//  ^token
 	idmain = current_id; // 抓住main函数, 当前current_id[Name]='main'
 
+	// cout<<ll
+	// hash = hash * 147 + *src;
+	// src = "cout";
+	// next();
+	// cout<<"parse cout "<<current_id[Name]<<endl;
+
+	// int hash=0;
+	// hash='c';
+	// hash=hash*147+'o';
+	// hash=hash*147+'u';
+	// hash=hash*147+'t';
+
+	// cout<<hash<<endl;
+	// cout<<ll
+
 	// src分配空间
 	if (!(src = old_src = (char*)malloc(poolsize))) {
 		printf("could not malloc(%d) for source area\n", poolsize);
@@ -613,35 +662,17 @@ int main(int argc,char **argv) {
 
 	program(); // 分析源代码
 
-	
-	
-	// -----text-------------------------------
-	// 0x309d60 0							  		
-	// 0x309d64 6							  
-	// 0x309d68 2							  
-	// 0x309d6c 0
-	// 0x309d70 -1
-	// 0x309d74 13
-	// 0x309d78 1
-	// 0x309d7c 88    
-	// 0x309d80 11
-	// 0x309d84 0
-	// 0x309d88 -2
-	// 0x309d8c 13
-	// 0x309d90 1
-	// 0x309d94 77    
-	// 0x309d98 11
-	// 0x309d9c 8
-	// 0x309da0 6  ----------- main()程序入口↓
-	// 0x309da4 1
-	// 0x309da8 0
-	// 0x309dac -1
-	// 0x309db0 13
-	// 0x309db4 1
-	// 0x309db8 199532
-	// 0x309dbc 11
-	// ...
-	// -----text---------------------------------
+
+
+	// -------------------text-----------------//
+	// ...									   //
+	// 0x309d98 11					           //
+	// 0x309d9c 8						       //
+	// 0x309da0 6    <--------  main()程序入口 //
+	// 0x309da4 1							   //
+	// 0x309da8 0							   //
+	// ...									   //
+	// -------------------text-----------------//
 	// 从main()函数在text中的位置, 开始执行
 	if (!(pc = (int *)idmain[Value])) {
 		printf("main() not defined\n");
