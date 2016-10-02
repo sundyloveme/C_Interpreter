@@ -1,4 +1,7 @@
-﻿#include <stdio.h>
+﻿// 作者:Sundy
+// 根据C-interpreter简化的一个编译器
+
+#include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
 #include <string.h>
@@ -14,10 +17,10 @@ int token; // 标记
 
 // 汇编指令集
 enum {
-	   LEA,IMM,JMP,CALL,JZ,JNZ,ENT,ADJ,LEV,LI,LC,SI,SC,PUSH,
-       OR,XOR,AND,EQ,NE,LT,GT,LE,GE,SHL,SHR,ADD,SUB,MUL,DIV,MOD,
-       OPEN,READ,CLOS,PRTF,MALC,MSET,MCMP,EXIT
-     };
+	LEA,IMM,JMP,CALL,JZ,JNZ,ENT,ADJ,LEV,LI,LC,SI,SC,PUSH,
+	OR,XOR,AND,EQ,NE,LT,GT,LE,GE,SHL,SHR,ADD,SUB,MUL,DIV,MOD,
+	OPEN,READ,CLOS,PRTF,MALC,MSET,MCMP,EXIT
+};
 
 // token标记集
 enum {
@@ -28,7 +31,8 @@ enum {
 
 // symbols表字段
 enum {
-	Token, Hash, Name, Type, Class, Value, BType, BClass, BValue, IdSize};
+	Token, Hash, Name, Type, Class, Value, BType, BClass, BValue, IdSize
+};
 
 // types of variable/function
 enum { CHAR, INT, PTR };
@@ -41,6 +45,9 @@ int *text, // text segment
 int * old_text; // for dump text segment
 char *data; // data segment
 int *idmain;
+
+// 栈的原始指针
+int *old_sp;
 
 char *src, *old_src;  // pointer to source code string;
 
@@ -148,6 +155,7 @@ int eval() {
 		} else if (op == READ) {
 			ax = read(sp[2], (char *)sp[1], *sp);
 		} else if (op == PRTF) {
+			// printf("%d",var);
 			tmp = sp + pc[1];
 			ax = printf((char *)tmp[-1], tmp[-2], tmp[-3], tmp[-4], tmp[-5], tmp[-6]);
 		}
@@ -167,55 +175,50 @@ int eval() {
 // 词法分析器
 // 传参给token
 void next() {
-	char *last_pos;//词汇的开头位置 词汇包括：数字，标识符和关键字等
-	int hash=0;    //哈希值
+	char *last_pos;// 词汇的开头位置 词汇包括：数字，标识符和关键字等
+	int hash=0;    // 哈希值
 
 	while(token=*src) {
 		src++;
 
-		//分析换行符'\n'
-		if(token=='\n') {
+		if(token=='\n') { 					  // 分析换行符'\n'
 			line++;
 		}
-
-
-		//分析词汇.
-		//词汇:变量名，关键字等.
-		else if(  (token>='a' && token<='z')  ||  (token>='A' && token<='Z')
-		          || (token=='_') ) {
+											  // 分析词汇, 词汇:变量名, 关键字等
+		else if(  (token>='a' && token<='z')  ||  (token>='A' && token<='Z')|| (token=='_') ) {
+		          
 
 			last_pos=src-1;
 			hash=token;
 
-			//整个词汇的哈希值
+			// 整个词汇的哈希值
 			while( (*src>='a' && *src<='z')  ||  (*src>='A' && *src<='Z')
 			        || (*src>='0' && *src<='9')  ||  (*src=='_')  ) {
 				hash=hash * 147 + *src;
 				src++;
 			}
 
-			//根据哈希值,搜索词汇.
+			// 根据哈希值, 搜索词汇
 			current_id=symbols;
-			while(current_id[Token]) { //这行有值,再执行.
+			while(current_id[Token]) { // 这行有值, 再执行
 				if(current_id[Hash]==hash) {
 					token=current_id[Token];
-					return;//循环结束
+					return;// 循环结束
 				}
 				current_id=current_id+IdSize;
 			}
 
-			//没有找到，新建一行.
+			// 没有找到, 新建一行
 			current_id[Name]=(long long)last_pos;
 			current_id[Hash]=hash;
 			token=current_id[Token]=Id;
 			return;
 		}
-
-		//分析数字
-		else if( token>='0' && token<='9' ) {
+		else if( token>='0' && token<='9' ) { // 分析数字
+		
 			token_val=token - '0';
 
-			//十进制数字
+			// 十进制数字
 			if(token_val>0) {
 				while(*src>='0' && *src<='9' ) {
 					token_val = token_val * 10 +
@@ -227,11 +230,8 @@ void next() {
 			token=Num;
 			return;
 		}
-
-
-		//分析等于'='
-		else if(token=='=') {
-			if(*src=='=') { //下一个还是'='，那么是'=='.
+		else if(token=='=') {				  // 分析等于'='
+			if(*src=='=') { // 下一个还是'='，那么是'=='.
 				src++;
 				token=Eq;
 			} else {
@@ -239,7 +239,6 @@ void next() {
 			}
 			return;
 		}
-
 		else if (token == '~' || token == ';' || token == '{' || token == '}' || token == '(' || token == ')' || token == ']' || token == ',' || token == ':') {
 			// directly return the character as token;
 			return;
@@ -462,15 +461,17 @@ int global_declaration() {
 
 	int type;
 	int i;
-
 	basetype = INT;
 
+	// int var;
+	//  ^token
 	if(token==Int) {
-		//cout<<"token="<<token<<endl;
 		match(Int);
 	}
 
-	//分析是变量还是函数
+	// 分析是变量还是函数
+	// int var;
+	//      ^token
 	while(token!=';' && token!='}' ) {
 		type=basetype;
 
@@ -479,11 +480,13 @@ int global_declaration() {
 			//cout<<"token="<<token<<endl;
 			exit(-1);
 		}
-		// 解析掉Id, 下一个是'函数'或'变量'
+		// int var;
+		//        ^token
 		match(Id);
 		current_id[Type] = type;
 
-		//后有'('显然是函数
+		// int fun( ){}
+		//        ^
 		if(token=='(') {
 			current_id[Class]=Fun;
 			current_id[Value]=(long long)(text+1);
@@ -510,7 +513,7 @@ int main(int argc,char **argv) {
 	int fd;// 文件句柄
 	int *tmp;// 母鸡
 
-	//...
+	// ...
 	argc--;
 	argv++;// 要打开的文件名
 
@@ -540,7 +543,7 @@ int main(int argc,char **argv) {
 		return -1;
 	}
 
-	poolsize = 256 * 1024; // arbitrary size
+	poolsize = 256 * 1024; // 最大尺寸
 	line = 1;
 
 	// 分配空间
@@ -567,7 +570,7 @@ int main(int argc,char **argv) {
 	memset(stack, 0, poolsize);
 	memset(symbols, 0, poolsize);
 
-	// old_text是text的首地址, text在后来会不停移动
+	// old_text是text的首地址, text在不停移动
 	old_text = text;
 
 	src = "char else enum if int return sizeof while "
@@ -590,10 +593,12 @@ int main(int argc,char **argv) {
 	}
 
 	next();
-	current_id[Token] = Char; // void标记为Char.不懂为何?
-	next();
-	idmain = current_id; // keep track of main 不懂?
+	current_id[Token] = Char; // void标记为Char. 不懂为何?
+	next(); // main
+	//  ^token
+	idmain = current_id; // 抓住main函数, 当前current_id[Name]='main'
 
+	// src分配空间
 	if (!(src = old_src = (char*)malloc(poolsize))) {
 		printf("could not malloc(%d) for source area\n", poolsize);
 		return -1;
@@ -606,23 +611,49 @@ int main(int argc,char **argv) {
 	src[i] = 0; // 末尾插入0, next()中的while()才会停止
 	close(fd);
 
-	program();
+	program(); // 分析源代码
 
-	// 不懂干嘛的
+	
+	
+	// -----text-------------------------------
+	// 0x309d60 0							  		
+	// 0x309d64 6							  
+	// 0x309d68 2							  
+	// 0x309d6c 0
+	// 0x309d70 -1
+	// 0x309d74 13
+	// 0x309d78 1
+	// 0x309d7c 88    
+	// 0x309d80 11
+	// 0x309d84 0
+	// 0x309d88 -2
+	// 0x309d8c 13
+	// 0x309d90 1
+	// 0x309d94 77    
+	// 0x309d98 11
+	// 0x309d9c 8
+	// 0x309da0 6  ----------- main()程序入口↓
+	// 0x309da4 1
+	// 0x309da8 0
+	// 0x309dac -1
+	// 0x309db0 13
+	// 0x309db4 1
+	// 0x309db8 199532
+	// 0x309dbc 11
+	// ...
+	// -----text---------------------------------
+	// 从main()函数在text中的位置, 开始执行
 	if (!(pc = (int *)idmain[Value])) {
 		printf("main() not defined\n");
 		return -1;
 	}
 
-	// dump_text();
+	// dump_text();暂时母鸡
 	if (assembly) {
 		// only for compile
 		return 0;
 	}
 
-	// 栈的原始指针
-	int *old_sp;
-	
 	// 不清楚用来干嘛的
 	// setup stack
 	old_sp = sp = (int *)((long long)stack + poolsize);
@@ -634,21 +665,15 @@ int main(int argc,char **argv) {
 	*--sp = (long long)tmp;
 
 
+	eval();
+
+	cout<<endl;
 	cout<<"-----text------"<<endl;
-	for (int i=0; i<=30 ; i++ ) {
+	for (int i=0; i<=20 ; i++ ) {
+		cout<<&old_text[i]<<" ";
 		cout<<old_text[i]<<endl;
 	}
 	cout<<"-----text------"<<endl<<endl;
-	
-	cout<<"-----stack------"<<endl;
-	for(int i=1;i<=20;i++){
-		cout<<*old_sp<<endl;
-		old_sp--;
-	}
-	cout<<"-----stack------"<<endl;
-	
-
-	eval();
 
 	return 0;
 }
